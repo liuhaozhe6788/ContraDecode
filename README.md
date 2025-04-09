@@ -24,6 +24,9 @@ This repository implements source-contrastive and language-contrastive decoding,
 
 ## Usage
 
+Create an out folder:
+- `mkdir out`
+
 **Example commands**
 
 Source-contrastive decoding with [M2M-100 (418M)](https://arxiv.org/abs/2010.11125) on Asturian–Croatian, with λ_src=0.7:
