@@ -1,5 +1,6 @@
 import logging
-
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import translation_models
 from mt_task import MTTask
 from translation_models import load_translation_model
