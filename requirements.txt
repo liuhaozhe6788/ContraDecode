@@ -2,6 +2,7 @@ datasets
 transformers
 sentencepiece
 sacrebleu
+sacremoses
 accelerate
 bitsandbytes
 scipy

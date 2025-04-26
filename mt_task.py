@@ -77,7 +77,9 @@ class MTTask:
                     else:
                         tgt_langs.append(offtarget)
                     src_langs.append(self.src_lang)
-
+            # now we get multi_source_sentences, including the original source sentence, contrastive source sentences,
+            # and the duplicates of original source sentence for contrastive languages, src_weights, src_langs, and tgt_langs
+            
             translations = []
             for pair in tqdm(list(zip(*multi_source_sentences))):
                 translation = translation_method(

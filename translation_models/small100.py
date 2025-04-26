@@ -1,13 +1,13 @@
 from typing import List, Union, Tuple, Set, Optional
 import torch
 from tqdm import tqdm
-from transformers import LogitsProcessorList, LogitsProcessor
+from transformers.generation_logits_process import LogitsProcessorList, LogitsProcessor
 from transformers.file_utils import PaddingStrategy
 from translation_models import TranslationModel
 from translation_models.utils import batch
 import torch.nn.functional as F
 from translation_models.m2m100 import zero_out_max, EnsembleLogitsProcessor
-from transformers import M2M100ForConditionalGeneration
+from transformers.models.m2m_100 import M2M100ForConditionalGeneration
 from translation_models.tokenization_small100 import SMALL100Tokenizer
 
 
@@ -103,11 +103,13 @@ class SMaLL100Model(TranslationModel):
         inputs = inputs.to(self.model.device)
         logits_processor = LogitsProcessorList([EnsembleLogitsProcessor(num_beams=num_beams, source_weights=src_weights)])
         model_output = self.model.generate(
-            **inputs,
+            **inputs, 
             num_beams=num_beams,
             return_dict_in_generate=True,
             logits_processor=logits_processor,
+            teacher_student=False,
             **kwargs,
         )
         translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
         return translations[0]
+

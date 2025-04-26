@@ -3,8 +3,8 @@ from typing import List, Union, Tuple, Set, Optional
 import torch
 import sys
 from tqdm import tqdm
-from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer, LogitsProcessorList, LogitsProcessor, \
-    ForcedBOSTokenLogitsProcessor
+from transformers.generation_logits_process import  LogitsProcessorList, LogitsProcessor, ForcedBOSTokenLogitsProcessor
+from transformers.models.m2m_100 import M2M100ForConditionalGeneration, M2M100Tokenizer
 from transformers.file_utils import PaddingStrategy
 
 from translation_models import TranslationModel

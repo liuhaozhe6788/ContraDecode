@@ -3,7 +3,8 @@ from typing import Set, List, Union, Tuple, Optional
 
 import torch
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, LogitsProcessorList
+from transformers.pipelines import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers.generation_logits_process import LogitsProcessorList
 
 from scripts.utils_run import FLORES101_CONVERT
 from translation_models import TranslationModel
