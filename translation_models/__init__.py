@@ -81,6 +81,63 @@ class TranslationModel:
             translation = self._translate_multi_source(multi_source_sentences, src_langs, tgt_langs, src_weights=src_weights, num_beams=num_beams, **kwargs)
 
         return translation
+    
+    # teacher-student translation generation
+    def translate_teacher_student(self,
+                  tgt_lang: str,
+                  source_sentences: Union[str, List[str]],
+                  src_lang: str = None,
+                  return_score: bool = False,
+                  batch_size: int = 8,
+                  num_beams: int = 5,
+                  st_coef: float = 0.5,
+                  student_min_prob: float = 0,
+                  student_temperature: float = 0.5,
+                  **kwargs,
+                  ) -> Union[str, List[str], Tuple[str, float], List[Tuple[str, float]]]:
+        if isinstance(source_sentences, str):
+            source_sentences_list = [source_sentences]
+        elif isinstance(source_sentences, list):
+            source_sentences_list = source_sentences
+        else:
+            raise ValueError
+
+        self._set_tgt_lang(tgt_lang)
+        if self.requires_src_lang:
+            if src_lang is None:
+                warnings.warn(f"NMT model {self} requires the src language. Assuming 'en'; override with `src_lang`")
+                src_lang = "en"
+            self._set_src_lang(src_lang)
+        translations_list = self._translate_teacher_student(source_sentences_list, return_score, batch_size, num_beams=num_beams, st_coef=st_coef, student_min_prob=student_min_prob, student_temperature=student_temperature, **kwargs)
+        assert len(translations_list) == len(source_sentences_list)
+
+        if isinstance(source_sentences, str):
+            translations = translations_list[0]
+        else:
+            translations = translations_list
+        return translations
+    
+    # hybrid translation generation
+    def translate_hybrid(self,
+                  multi_source_sentences: List[str],
+                  tgt_langs: List[str],
+                  src_langs: Optional[List[str]] = None,
+                  src_weights: Optional[List[float]] = None,
+                  num_beams: int = 5,
+                  st_coef: float = 0.5,
+                  student_min_prob: float = 0,
+                  student_temperature: float = 0.5,
+                  **kwargs,
+                  ) -> Union[str, List[str], Tuple[str, float], List[Tuple[str, float]]]:
+        translation = None
+
+        if translation is None:
+            self._set_tgt_lang(tgt_langs[0])
+            if self.requires_src_lang:
+                assert src_langs is not None
+            translation = self._translate_hybrid(multi_source_sentences, src_langs, tgt_langs, src_weights=src_weights, st_coef=st_coef,  student_min_prob=student_min_prob, student_temperature=student_temperature, num_beams=num_beams, **kwargs)
+
+        return translation
 
 
 def load_translation_model(name: str, **kwargs) -> TranslationModel:
@@ -96,6 +153,12 @@ def load_translation_model(name: str, **kwargs) -> TranslationModel:
     elif name == "small100":
         from translation_models.small100 import SMaLL100Model
         translation_model = SMaLL100Model(model_name_or_path="alirezamsh/small100", **kwargs)
+    elif name == "small100_tr_st":
+        from translation_models.small100 import SMALL100ModelTeacherStudent
+        translation_model = SMALL100ModelTeacherStudent(model_name_or_path="alirezamsh/small100", **kwargs)      
+    elif name == "small100_hybrid":
+        from translation_models.small100 import SMALL100ModelHybrid
+        translation_model = SMALL100ModelHybrid(model_name_or_path="alirezamsh/small100", **kwargs)     
     elif name == "llama-2-7b-chat":
         from translation_models.llama import LLaMaTranslationModel
         translation_model = LLaMaTranslationModel(model_name_or_path="meta-llama/Llama-2-7b-chat-hf", **kwargs)

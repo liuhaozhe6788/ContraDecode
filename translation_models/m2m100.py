@@ -30,7 +30,8 @@ class EnsembleLogitsProcessor(LogitsProcessor):
         if self.preserve_bos_token and cur_len <= 1:
             return scores
 
-        scores = F.softmax(scores, dim=-1)
+        # scores = F.softmax(scores, dim=-1)
+        scores = torch.exp(scores)
 
         batch_size = int(input_ids.size(0) / self.num_beams)
         if self.source_weights is not None:

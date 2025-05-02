@@ -19,7 +19,7 @@ def post_process_easy(teacher_distribution, student_distribution, model_kwargs):
 
 
 def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_scores, student_scores, 
-                            model_kwargs, main_model):
+                            model_kwargs, main_model, use_dynamic_coef=False):
     # new_input_ids = input_ids[next_indices.squeeze(0)]
     # temp_rollout = torch.cat([new_input_ids, next_tokens.view(new_input_ids.size(0), -1)], dim=-1)
     # preseqlen = temp_rollout.size(1)
@@ -37,9 +37,21 @@ def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_sco
     # print(diff) 
 
     # print(next_token_scores.shape, student_scores.shape, )
+    teacher_token_scores_exp = next_token_scores.exp()
+    max_prob = torch.max(teacher_token_scores_exp, dim=next_token_scores.dim()-1).values.reshape(-1,1)
+    thres = torch.mul(0.15, max_prob)
 
+    # calculating dynamic weight
+    if use_dynamic_coef:
+        st_coef = 1- torch.pow(max_prob, model_kwargs['st_coef'])
+    else:
+        st_coef = model_kwargs['st_coef']
 
-    next_token_scores = next_token_scores - model_kwargs['st_coef'] * student_scores
+    # thresholding
+    prob_cond = teacher_token_scores_exp > thres
+    next_token_scores = torch.where(prob_cond, next_token_scores, next_token_scores - 200)
+    trunc_cond = teacher_token_scores_exp < thres
+    next_token_scores = torch.where(trunc_cond, next_token_scores, next_token_scores - st_coef * student_scores)
 
     # print(next_token_scores) # analysis 
 

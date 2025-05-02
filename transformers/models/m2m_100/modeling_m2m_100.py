@@ -18,6 +18,7 @@
 import math
 import random
 from typing import Optional, Tuple, Union
+import os
 
 import torch
 from torch import nn
@@ -206,6 +207,7 @@ class M2M100Attention(nn.Module):
         dropout: float = 0.0,
         is_decoder: bool = False,
         bias: bool = True,
+        **model_kargs
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -220,6 +222,7 @@ class M2M100Attention(nn.Module):
             )
         self.scaling = self.head_dim**-0.5
         self.is_decoder = is_decoder
+        self.attention_scaling = model_kargs.pop("attention_scaling", 1)
 
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
@@ -285,6 +288,8 @@ class M2M100Attention(nn.Module):
 
         src_len = key_states.size(1)
         attn_weights = torch.bmm(query_states, key_states.transpose(1, 2))
+        if self.attention_scaling != 1:
+            attn_weights = attn_weights * self.attention_scaling
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
@@ -345,13 +350,15 @@ class M2M100Attention(nn.Module):
 
 # Copied from transformers.models.mbart.modeling_mbart.MBartEncoderLayer with MBart->M2M100
 class M2M100EncoderLayer(nn.Module):
-    def __init__(self, config: M2M100Config):
+    def __init__(self, config: M2M100Config, **model_kargs):
         super().__init__()
         self.embed_dim = config.d_model
+        self.attention_scaling = model_kargs.pop("attention_scaling", 1)
         self.self_attn = M2M100Attention(
             embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
             dropout=config.attention_dropout,
+            **model_kargs
         )
         self.self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.dropout = config.dropout
@@ -414,7 +421,7 @@ class M2M100EncoderLayer(nn.Module):
 
 # Copied from transformers.models.mbart.modeling_mbart.MBartDecoderLayer with MBart->M2M100
 class M2M100DecoderLayer(nn.Module):
-    def __init__(self, config: M2M100Config):
+    def __init__(self, config: M2M100Config, **model_kargs):
         super().__init__()
         self.embed_dim = config.d_model
 
@@ -423,6 +430,7 @@ class M2M100DecoderLayer(nn.Module):
             num_heads=config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            **model_kargs
         )
         self.dropout = config.dropout
         self.activation_fn = ACT2FN[config.activation_function]
@@ -434,6 +442,7 @@ class M2M100DecoderLayer(nn.Module):
             config.decoder_attention_heads,
             dropout=config.attention_dropout,
             is_decoder=True,
+            **model_kargs
         )
         self.encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
@@ -685,7 +694,7 @@ class M2M100Encoder(M2M100PreTrainedModel):
         embed_tokens (nn.Embedding): output embedding
     """
 
-    def __init__(self, config: M2M100Config, embed_tokens: Optional[nn.Embedding] = None):
+    def __init__(self, config: M2M100Config, embed_tokens: Optional[nn.Embedding] = None, **model_kargs):
         super().__init__(config)
 
         self.dropout = config.dropout
@@ -706,7 +715,7 @@ class M2M100Encoder(M2M100PreTrainedModel):
             embed_dim,
             self.padding_idx,
         )
-        self.layers = nn.ModuleList([M2M100EncoderLayer(config) for _ in range(config.encoder_layers)])
+        self.layers = nn.ModuleList([M2M100EncoderLayer(config, **model_kargs) for _ in range(config.encoder_layers)])
         self.layer_norm = nn.LayerNorm(config.d_model)
 
         self.gradient_checkpointing = False
@@ -863,7 +872,7 @@ class M2M100Decoder(M2M100PreTrainedModel):
         embed_tokens (nn.Embedding): output embedding
     """
 
-    def __init__(self, config: M2M100Config, embed_tokens: Optional[nn.Embedding] = None):
+    def __init__(self, config: M2M100Config, embed_tokens: Optional[nn.Embedding] = None, **model_kargs):
         super().__init__(config)
         self.dropout = config.dropout
         self.layerdrop = config.decoder_layerdrop
@@ -881,7 +890,7 @@ class M2M100Decoder(M2M100PreTrainedModel):
             config.d_model,
             self.padding_idx,
         )
-        self.layers = nn.ModuleList([M2M100DecoderLayer(config) for _ in range(config.decoder_layers)])
+        self.layers = nn.ModuleList([M2M100DecoderLayer(config, **model_kargs) for _ in range(config.decoder_layers)])
         self.layer_norm = nn.LayerNorm(config.d_model)
 
         self.gradient_checkpointing = False
@@ -1128,14 +1137,14 @@ class M2M100Decoder(M2M100PreTrainedModel):
     M2M_100_START_DOCSTRING,
 )
 class M2M100Model(M2M100PreTrainedModel):
-    def __init__(self, config: M2M100Config):
+    def __init__(self, config: M2M100Config, **model_kargs):
         super().__init__(config)
 
         padding_idx, vocab_size = config.pad_token_id, config.vocab_size
         self.shared = nn.Embedding(vocab_size, config.d_model, padding_idx)
 
-        self.encoder = M2M100Encoder(config, self.shared)
-        self.decoder = M2M100Decoder(config, self.shared)
+        self.encoder = M2M100Encoder(config, self.shared, **model_kargs)
+        self.decoder = M2M100Decoder(config, self.shared, **model_kargs)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -1252,13 +1261,18 @@ class M2M100ForConditionalGeneration(M2M100PreTrainedModel):
         r"model.decoder.embed_positions.weights",
     ]
 
-    def __init__(self, config: M2M100Config):
+    def __init__(self, config: M2M100Config, **model_kargs):
         super().__init__(config)
-        self.model = M2M100Model(config)
+        self.model = M2M100Model(config, **model_kargs)
         self.lm_head = nn.Linear(config.d_model, self.model.shared.num_embeddings, bias=False)
 
         # Initialize weights and apply final processing
         self.post_init()
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path: Optional[Union[str, os.PathLike]], **model_kargs):
+        return super().from_pretrained(pretrained_model_name_or_path, **model_kargs)
+
 
     def get_encoder(self):
         return self.model.get_encoder()

@@ -1221,18 +1221,18 @@ class GenerationMixin:
             # print(inputs_tensor, 'input_tensor', model_kwargs['attention_mask'], 'attn_mask') 
             if model_kwargs['teacher_student']: #DEBUG
                 if False: # DEBUG 
-                    print('using base inputs for students')
+                    # print('using base inputs for students')
                     input_base = torch.LongTensor([[0, 2, 1, 1, 1, 1, 1, 1]]).expand(inputs_tensor.size(0), -1).to(inputs_tensor.device)
                     attention_base = torch.LongTensor([[1, 1, 0, 0, 0, 0, 0, 0]]).expand(inputs_tensor.size(0), -1).to(inputs_tensor.device)
                 else:
-                    print('using real inputs for students')
+                    # print('using real inputs for students')
                     input_base = inputs_tensor
                     attention_base = model_kwargs['attention_mask'] 
                 model_kwargs_student = {}
                 model_kwargs_student['attention_mask'] = attention_base
                 model_kwargs['model_kwargs_student'] = model_kwargs['student_lm']._prepare_encoder_decoder_kwargs_for_generation(input_base, 
                                                                                                         model_kwargs_student, model_input_name)
-        # 4. Prepare `input_ids` which will be used for auto-regressive generation
+        # 4. Prepare `input_ids` as decoder start token ids, which will be used for auto-regressive generation
         if self.config.is_encoder_decoder:
             input_ids = self._prepare_decoder_input_ids_for_generation(
                 batch_size,
@@ -1522,7 +1522,7 @@ class GenerationMixin:
             # 11. interleave input_ids with `num_beams` additional sequences per batch
 
              # DEBUG. 
-            print(model_kwargs['teacher_student'])
+            # print(model_kwargs['teacher_student'])
             if model_kwargs['teacher_student'] and self.config.is_encoder_decoder:
                 _, model_kwargs['model_kwargs_student'] = self._expand_inputs_for_generation(
                     input_ids, expand_size=num_beams, is_encoder_decoder=self.config.is_encoder_decoder, **model_kwargs['model_kwargs_student'],
@@ -1538,10 +1538,10 @@ class GenerationMixin:
 
             top_k = None 
             if model_kwargs['teacher_student']:
-                print('setting the adaptive thresholding')
+                # print('setting the adaptive thresholding')
                 relative_top = 0.1 #None 
             else:
-                print('not setting adaptive thresholding')
+                # print('not setting adaptive thresholding')
                 relative_top = None 
             # relative_top = None #jason version.  
             logits_warper = self._get_logits_warper(
@@ -1567,7 +1567,7 @@ class GenerationMixin:
                 num_beams=num_beams,
                 renormalize_logits=renormalize_logits,
             )
-            print(logits_warper_student)
+            # print(logits_warper_student)
 
             # 12. run beam search
             return self.beam_search(
@@ -2638,7 +2638,7 @@ class GenerationMixin:
                 next_token_logits_student = next_token_logits_student.reshape(batch_size, num_beams * vocab_size)
                 
                 if first_marker:
-                    print('should only appear once... ')
+                    # print('should only appear once... ')
                     first_marker = False 
                     next_token_scores_keep = next_token_scores 
                 # old version. 

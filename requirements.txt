@@ -1,5 +1,4 @@
 datasets
-transformers
 sentencepiece
 sacrebleu
 sacremoses

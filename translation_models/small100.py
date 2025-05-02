@@ -1,4 +1,6 @@
 from typing import List, Union, Tuple, Set, Optional
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import torch
 from tqdm import tqdm
 from transformers.generation_logits_process import LogitsProcessorList, LogitsProcessor
@@ -72,6 +74,7 @@ class SMaLL100Model(TranslationModel):
                 num_beams=num_beams,
                 return_dict_in_generate=True,
                 output_scores=return_score,
+                teacher_student=False,
                 **kwargs,
             )
             batch_translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
@@ -113,3 +116,104 @@ class SMaLL100Model(TranslationModel):
         translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
         return translations[0]
 
+class SMALL100ModelTeacherStudent(SMaLL100Model):
+    """
+    SMALL100 model with teacher-student contrastive decoding generation
+
+    """
+    def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None):
+        super().__init__(model_name_or_path=model_name_or_path, device=device)
+        self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=0.01)
+        if device is not None:
+            self.student_model = self.student_model.to(device)
+
+    @torch.no_grad()
+    def _translate_teacher_student(self,
+                   source_sentences: List[str],
+                   return_score: bool = False,
+                   batch_size: int = 8,
+                   num_beams: int = 5,
+                   st_coef: float = 0.5,
+                   student_min_prob: float = 0,
+                   student_temperature: float = 0.5,
+                   **kwargs,
+                   ) -> Union[List[str], List[Tuple[str, float]]]:
+        padding_strategy = PaddingStrategy.LONGEST if batch_size > 1 else PaddingStrategy.DO_NOT_PAD
+        translations = []
+        for src_sentences in tqdm(list(batch(source_sentences, batch_size)), disable=len(source_sentences) / batch_size < 10):
+            inputs = self.tokenizer._batch_encode_plus(src_sentences, return_tensors="pt",
+                                                       padding_strategy=padding_strategy)
+            inputs = inputs.to(self.model.device)
+            model_output = self.model.generate(
+                **inputs,
+                num_beams=num_beams,
+                return_dict_in_generate=True,
+                student_lm=self.student_model,
+                teacher_student=True,
+                model_kwargs_student={}, 
+                st_coef=st_coef,
+                tokenizer=self.tokenizer, # analysis
+                student_min_prob=student_min_prob,
+                student_temperature=student_temperature,
+                **kwargs
+            )
+            batch_translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
+            if return_score:
+                # Does not match our score method output for some reason; need to investigate further
+                # scores = (2 ** model_output.sequences_scores).tolist()
+                scores = [None for _ in batch_translations]
+                assert len(batch_translations) == len(scores)
+                batch_translations = list(zip(batch_translations, scores))
+            translations += batch_translations
+        return translations    
+    
+
+class SMALL100ModelHybrid(SMALL100ModelTeacherStudent):
+    """
+    SMALL100 model with hybrid contrastive decoding generation
+
+    """
+    def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None):
+        super().__init__(model_name_or_path=model_name_or_path, device=device)
+
+    @torch.no_grad()
+    def _translate_hybrid(self,
+                        multi_source_sentences: List[str],
+                        src_langs: List[str],
+                        tgt_langs: List[str],
+                        src_weights: Optional[List[float]] = None,
+                        num_beams: int = 1,
+                        st_coef: float = 0.5,
+                        student_min_prob: float = 0,
+                        student_temperature: float = 0.5,
+                        **kwargs,
+                        ) -> str:
+        assert len(multi_source_sentences) == len(src_langs)
+        #src_weights = [0.5,0.25,0.25]
+
+        inputs = self.tokenizer._batch_encode_plus(multi_source_sentences, return_tensors="pt",
+                                                   padding_strategy=PaddingStrategy.LONGEST)
+        # Set individual src language token per row
+        for i, src_lang in enumerate(src_langs):
+            inputs["input_ids"][i][0] = self.tokenizer.get_lang_id(tgt_langs[i])
+        inputs = inputs.to(self.model.device)
+        logits_processor = LogitsProcessorList([EnsembleLogitsProcessor(num_beams=num_beams, source_weights=src_weights)])
+        model_output = self.model.generate(
+            **inputs, 
+            num_beams=num_beams,
+            return_dict_in_generate=True,
+            logits_processor=logits_processor,
+            student_lm=self.student_model,
+            teacher_student=True,
+            model_kwargs_student={}, 
+            st_coef=st_coef,
+            tokenizer=self.tokenizer, # analysis
+            student_min_prob=student_min_prob,
+            student_temperature=student_temperature,
+            **kwargs,
+        )
+        translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
+        return translations[0]
+
+if __name__ == "__main__":
+    teacher_student_model = SMALL100ModelTeacherStudent()
