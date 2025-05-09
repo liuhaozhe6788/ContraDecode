@@ -48,11 +48,11 @@ def main(args):
         print(f"Task added {lang_pair[0]} - {lang_pair[1]}")
 
     for task in tasks:
-        if args.source_contrastive or args.language_contrastive:
+        if (args.source_contrastive or args.language_contrastive) and not args.model_contrastive:  
             print(f"Evaluating {task} multi_source")
             out_path = task.evaluate(model.translate_multi_source, 'input_contrastive', args.source_contrastive, args.source_weight, args.language_contrastive, args.language_weight)
             print(f"Translations saved in {out_path}")
-        elif args.model_contrastive:  
+        elif not (args.source_contrastive or args.language_contrastive) and args.model_contrastive:  
             print(f"Evaluating {task} teacher-student") 
             out_path = task.evaluate(model.translate_teacher_student, 'model_contrastive', args.st_coef, args.student_min_prob, args.student_temperature)
             print(f"Translations saved in {out_path}")     
