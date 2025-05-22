@@ -3,3 +3,5 @@ __pycache__
 out/
 log_test/
 outputs/
+.DS_Store
+*.xlsx
