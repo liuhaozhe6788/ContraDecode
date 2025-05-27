@@ -2,6 +2,7 @@ from typing import List, Union, Tuple, Set, Optional
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import torch
+from copy import deepcopy
 from tqdm import tqdm
 from transformers.generation_logits_process import LogitsProcessorList, LogitsProcessor
 from transformers.file_utils import PaddingStrategy
@@ -123,7 +124,13 @@ class SMALL100ModelTeacherStudent(SMaLL100Model):
     """
     def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None):
         super().__init__(model_name_or_path=model_name_or_path, device=device)
-        self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=0.01)
+
+        # attention scaling
+        # self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=0.01)
+
+        # decoder only
+        self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, decoder_only=True)
+
         if device is not None:
             self.student_model = self.student_model.to(device)
 

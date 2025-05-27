@@ -54,7 +54,7 @@ def main(args):
             print(f"Translations saved in {out_path}")
         elif not (args.source_contrastive or args.language_contrastive) and args.model_contrastive:  
             print(f"Evaluating {task} teacher-student") 
-            out_path = task.evaluate(model.translate_teacher_student, 'model_contrastive', args.st_coef, args.student_min_prob, args.student_temperature)
+            out_path = task.evaluate(model.translate_teacher_student, 'model_contrastive', st_coef=args.st_coef, student_min_prob=args.student_min_prob, student_temperature=args.student_temperature)
             print(f"Translations saved in {out_path}")     
         elif (args.source_contrastive or args.language_contrastive) and args.model_contrastive:  
             print(f"Evaluating {task} hybrid") 

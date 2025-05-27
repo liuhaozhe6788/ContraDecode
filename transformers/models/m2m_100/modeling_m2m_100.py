@@ -448,6 +448,7 @@ class M2M100DecoderLayer(nn.Module):
         self.fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
         self.fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
+        self.decoder_only = model_kargs.pop("decoder_only", False)
 
     def forward(
         self,
@@ -499,7 +500,7 @@ class M2M100DecoderLayer(nn.Module):
         # Cross-Attention Block
         cross_attn_present_key_value = None
         cross_attn_weights = None
-        if encoder_hidden_states is not None:
+        if encoder_hidden_states is not None and not self.decoder_only:
             residual = hidden_states
             hidden_states = self.encoder_attn_layer_norm(hidden_states)
 

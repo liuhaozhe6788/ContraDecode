@@ -19,7 +19,7 @@ def post_process_easy(teacher_distribution, student_distribution, model_kwargs):
 
 
 def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_scores, student_scores, 
-                            model_kwargs, main_model, use_dynamic_coef=False):
+                            model_kwargs, main_model, use_dynamic_coef=True):
     # new_input_ids = input_ids[next_indices.squeeze(0)]
     # temp_rollout = torch.cat([new_input_ids, next_tokens.view(new_input_ids.size(0), -1)], dim=-1)
     # preseqlen = temp_rollout.size(1)
@@ -49,7 +49,7 @@ def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_sco
 
     # thresholding
     prob_cond = teacher_token_scores_exp > thres
-    next_token_scores = torch.where(prob_cond, next_token_scores, next_token_scores - 200)
+    next_token_scores = torch.where(prob_cond, next_token_scores, next_token_scores - 20)
     trunc_cond = teacher_token_scores_exp < thres
     next_token_scores = torch.where(trunc_cond, next_token_scores, next_token_scores - st_coef * student_scores)
 
