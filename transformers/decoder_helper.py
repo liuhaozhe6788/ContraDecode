@@ -39,7 +39,7 @@ def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_sco
     # print(next_token_scores.shape, student_scores.shape, )
     teacher_token_scores_exp = next_token_scores.exp()
     max_prob = torch.max(teacher_token_scores_exp, dim=next_token_scores.dim()-1).values.reshape(-1,1)
-    thres = torch.mul(0.15, max_prob)
+    thres = torch.mul(0.1, max_prob)
 
     # calculating dynamic weight
     if use_dynamic_coef:

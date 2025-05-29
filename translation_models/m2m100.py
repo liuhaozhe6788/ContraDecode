@@ -20,10 +20,11 @@ def zero_out_max(x):
 
 class EnsembleLogitsProcessor(LogitsProcessor):
 
-    def __init__(self, num_beams: int, source_weights: List[float] = None, preserve_bos_token: bool = False):
+    def __init__(self, num_beams: int, source_weights: List[float] = None, preserve_bos_token: bool = False, use_dynamic_coef=False):
         self.num_beams = num_beams
         self.source_weights = source_weights
         self.preserve_bos_token = preserve_bos_token
+        self.use_dynamic_coef = use_dynamic_coef
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         cur_len = input_ids.shape[-1]
@@ -42,6 +43,10 @@ class EnsembleLogitsProcessor(LogitsProcessor):
         for i in range(self.num_beams):
             beam_indices = self.num_beams * torch.arange(batch_size, device=scores.device, dtype=torch.long) + i
             cands = scores[beam_indices]
+            if self.use_dynamic_coef:
+                max_cands = torch.max(cands, dim=cands.dim()-1).values[1: ]
+                source_weights = 1- torch.pow(max_cands, source_weights[1: ])
+                source_weights = torch.cat([torch.tensor([1], device=scores.device), source_weights], dim=0)
             mean_scores = torch.log((source_weights.unsqueeze(-1).expand(-1, scores.size(-1)) * cands).sum(dim=0))
             for j in beam_indices:
                 scores[j] = mean_scores
