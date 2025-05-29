@@ -35,6 +35,8 @@ def main(args):
 
     model = load_translation_model(args.model_path, device=0)
     language_pairs = args.language_pairs.split(',')
+    use_customized = args.use_customized
+    custom_dataset_name = args.customized_dataset_name
     language_pairs = [x.split("-") for x in language_pairs]
 
     if args.oneshot:
@@ -44,7 +46,7 @@ def main(args):
     tasks = []
     
     for lang_pair in language_pairs:
-        tasks.append(MTTask(lang_pair[0],lang_pair[1],'flores'))
+        tasks.append(MTTask(lang_pair[0],lang_pair[1],'flores',use_customized,custom_dataset_name))
         print(f"Task added {lang_pair[0]} - {lang_pair[1]}")
 
     for task in tasks:
@@ -69,6 +71,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, default="",
                         help="The HF model path")
+    parser.add_argument("--use_customized", action="store_true",
+                    help="Use customized dataset instead of Flores")
+    parser.add_argument("--customized_dataset_name", type=str, default="customized_dataset.csv",
+                    help="Path or URL to the customized dataset (required if --use_customized is set).")
     parser.add_argument("--language_pairs", type=str, default="",
                         help="language pairs")
     parser.add_argument("--source_contrastive", nargs='?', const=1, type=int,

@@ -897,6 +897,8 @@ class M2M100Decoder(M2M100PreTrainedModel):
         self.gradient_checkpointing = False
         # Initialize weights and apply final processing
         self.post_init()
+        self.early_exit = model_kargs.pop("early_exit", False)
+        self.early_exit_layer = model_kargs.pop("early_exit_layer", 0)
 
     def forward(
         self,
@@ -1044,6 +1046,8 @@ class M2M100Decoder(M2M100PreTrainedModel):
                     )
         deepspeed_zero3_is_enabled = is_deepspeed_zero3_enabled()
 
+        if self.early_exit and self.early_exit_layer > 0:
+            self.layers = self.layers[: self.early_exit_layer]
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)

@@ -1,3 +1,4 @@
+import pandas as pd
 import logging
 import subprocess
 import tempfile
@@ -16,11 +17,15 @@ class MTTask:
                  src_lang: str,
                  tgt_lang: str,
                  testset: str,
+                 use_customize: bool,
+                 custom_dataset_name: str,
                  ):
         self.src_lang = src_lang
         self.tgt_lang = tgt_lang
         self.language_pair = f"{src_lang}-{tgt_lang}"
         self.testset = testset
+        self.use_customize = use_customize
+        self.custom_dataset_name = custom_dataset_name
         base_out_dir = Path(__file__).parent / "out"
         print(base_out_dir)
         assert base_out_dir.exists()
@@ -36,8 +41,12 @@ class MTTask:
 
     def evaluate(self, translation_method: callable, type='direct', source_contrastive=1, source_weight=None, language_contrastive=None, language_weight=None, st_coef: float = 0.5, student_min_prob: float = 0, student_temperature: float = 0.5) -> Path:
 
+        if self.use_customize:
+            df = pd.read_csv(f'customized_datasets/{self.custom_dataset_name}')
+            source_sentences = df['sentence'].tolist()
+        else:
         ## load FLORES dataset
-        source_sentences = load_dataset('gsarti/flores_101',self.load_converter[self.src_lang])['devtest']['sentence']
+            source_sentences = load_dataset('gsarti/flores_101',self.load_converter[self.src_lang])['devtest']['sentence']
 
         if type == 'direct':
             translations = translation_method(
@@ -165,9 +174,13 @@ class MTTask:
             f.write("\n".join(translations))
 
         if not os.path.isfile(str(self.out_dir)+"/"+"ref.text"):
-            target_sentences = load_dataset('gsarti/flores_101', self.load_converter[self.tgt_lang])['devtest'][
-                'sentence']
-            with open(str(self.out_dir) + "/" + "ref.txt", 'w') as f:
-                f.write("\n".join(target_sentences))
+            if self.use_customize:
+                target_sentences = df['reference'].tolist()
+                with open(str(self.out_dir) + "/" + "customized_ref.txt", 'w') as f:
+                    f.write("\n".join(target_sentences))
+            else:
+                target_sentences = load_dataset('gsarti/flores_101', self.load_converter[self.tgt_lang])['devtest']['sentence']
+                with open(str(self.out_dir) + "/" + "ref.txt", 'w') as f:
+                    f.write("\n".join(target_sentences))
 
         return Path(f.name)

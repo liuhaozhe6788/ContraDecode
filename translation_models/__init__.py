@@ -158,7 +158,16 @@ def load_translation_model(name: str, **kwargs) -> TranslationModel:
         translation_model = SMALL100ModelTeacherStudent(model_name_or_path="alirezamsh/small100", **kwargs)      
     elif name == "small100_hybrid":
         from translation_models.small100 import SMALL100ModelHybrid
-        translation_model = SMALL100ModelHybrid(model_name_or_path="alirezamsh/small100", **kwargs)     
+        translation_model = SMALL100ModelHybrid(model_name_or_path="alirezamsh/small100", **kwargs)  
+    # elif name == "m2m100_418M":
+    #     from translation_models.m2m100 import M2M100Model
+    #     translation_model = M2M100Model(model_name_or_path="facebook/m2m100_418M", **kwargs)  
+    elif name == "m2m100_tr_st":
+        from translation_models.m2m100 import M2M100ModelTeacherStudent
+        translation_model = M2M100ModelTeacherStudent(model_name_or_path="facebook/m2m100_418M", **kwargs)   
+    elif name == "m2m100_hybrid":
+        from translation_models.m2m100 import M2M100ModelHybrid
+        translation_model = M2M100ModelHybrid(model_name_or_path="facebook/m2m100_418M", **kwargs)
     elif name == "llama-2-7b-chat":
         from translation_models.llama import LLaMaTranslationModel
         translation_model = LLaMaTranslationModel(model_name_or_path="meta-llama/Llama-2-7b-chat-hf", **kwargs)
