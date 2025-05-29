@@ -3,8 +3,8 @@ from typing import List, Union, Tuple, Set, Optional
 import torch
 import sys
 from tqdm import tqdm
-from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer, LogitsProcessorList, LogitsProcessor, \
-    ForcedBOSTokenLogitsProcessor
+from transformers.generation_logits_process import  LogitsProcessorList, LogitsProcessor, ForcedBOSTokenLogitsProcessor
+from transformers.models.m2m_100 import M2M100ForConditionalGeneration, M2M100Tokenizer
 from transformers.file_utils import PaddingStrategy
 
 from translation_models import TranslationModel
@@ -20,17 +20,19 @@ def zero_out_max(x):
 
 class EnsembleLogitsProcessor(LogitsProcessor):
 
-    def __init__(self, num_beams: int, source_weights: List[float] = None, preserve_bos_token: bool = False):
+    def __init__(self, num_beams: int, source_weights: List[float] = None, preserve_bos_token: bool = False, use_dynamic_coef=False):
         self.num_beams = num_beams
         self.source_weights = source_weights
         self.preserve_bos_token = preserve_bos_token
+        self.use_dynamic_coef = use_dynamic_coef
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         cur_len = input_ids.shape[-1]
         if self.preserve_bos_token and cur_len <= 1:
             return scores
 
-        scores = F.softmax(scores, dim=-1)
+        # scores = F.softmax(scores, dim=-1)
+        scores = torch.exp(scores)
 
         batch_size = int(input_ids.size(0) / self.num_beams)
         if self.source_weights is not None:
@@ -41,6 +43,10 @@ class EnsembleLogitsProcessor(LogitsProcessor):
         for i in range(self.num_beams):
             beam_indices = self.num_beams * torch.arange(batch_size, device=scores.device, dtype=torch.long) + i
             cands = scores[beam_indices]
+            if self.use_dynamic_coef:
+                max_cands = torch.max(cands, dim=cands.dim()-1).values[1: ]
+                source_weights = 1- torch.pow(max_cands, source_weights[1: ])
+                source_weights = torch.cat([torch.tensor([1], device=scores.device), source_weights], dim=0)
             mean_scores = torch.log((source_weights.unsqueeze(-1).expand(-1, scores.size(-1)) * cands).sum(dim=0))
             for j in beam_indices:
                 scores[j] = mean_scores
