@@ -129,10 +129,10 @@ class SMALL100ModelTeacherStudent(SMaLL100Model):
         # self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=0.01)
 
         # decoder only
-        self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, decoder_only=True)
+        # self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, decoder_only=True)
 
         # early exit
-        # self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, early_exit=True, early_exit_layer=1)
+        self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, early_exit_layer=1)
 
         if device is not None:
             self.student_model = self.student_model.to(device)

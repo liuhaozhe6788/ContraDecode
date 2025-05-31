@@ -288,8 +288,6 @@ class M2M100Attention(nn.Module):
 
         src_len = key_states.size(1)
         attn_weights = torch.bmm(query_states, key_states.transpose(1, 2))
-        if self.attention_scaling != 1:
-            attn_weights = attn_weights * self.attention_scaling
 
         if attn_weights.size() != (bsz * self.num_heads, tgt_len, src_len):
             raise ValueError(
@@ -306,6 +304,8 @@ class M2M100Attention(nn.Module):
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         attn_weights = nn.functional.softmax(attn_weights, dim=-1)
+        if self.attention_scaling != 1:
+            attn_weights = attn_weights * self.attention_scaling
 
         if layer_head_mask is not None:
             if layer_head_mask.size() != (self.num_heads,):
@@ -353,7 +353,6 @@ class M2M100EncoderLayer(nn.Module):
     def __init__(self, config: M2M100Config, **model_kargs):
         super().__init__()
         self.embed_dim = config.d_model
-        self.attention_scaling = model_kargs.pop("attention_scaling", 1)
         self.self_attn = M2M100Attention(
             embed_dim=self.embed_dim,
             num_heads=config.encoder_attention_heads,
@@ -897,8 +896,7 @@ class M2M100Decoder(M2M100PreTrainedModel):
         self.gradient_checkpointing = False
         # Initialize weights and apply final processing
         self.post_init()
-        self.early_exit = model_kargs.pop("early_exit", False)
-        self.early_exit_layer = model_kargs.pop("early_exit_layer", 0)
+        self.early_exit_layer = model_kargs.pop("early_exit_layer", 2e4)
 
     def forward(
         self,
@@ -1046,9 +1044,9 @@ class M2M100Decoder(M2M100PreTrainedModel):
                     )
         deepspeed_zero3_is_enabled = is_deepspeed_zero3_enabled()
 
-        if self.early_exit and self.early_exit_layer > 0:
-            self.layers = self.layers[: self.early_exit_layer]
         for idx, decoder_layer in enumerate(self.layers):
+            if idx == self.early_exit_layer:
+                break
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 
