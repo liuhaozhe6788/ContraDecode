@@ -35,11 +35,11 @@ Source-contrastive decoding with [M2M-100 (418M)](https://arxiv.org/abs/2010.111
 Source-contrastive and language-contrastive decoding with [SMaLL-100](https://arxiv.org/abs/2210.11621) on Pashto–Asturian, with 2 random source segments, λ_src=0.7, λ_lang=0.1, and English and Pashto as contrastive target languages:
 - `python -m scripts.run --model_path small100 --language_pairs ps-ast --source_contrastive 2 --source_weight -0.7 --language_contrastive en ps  --language_weight -0.1`
 
-Teacher-student model-contrastive with [SMaLL-100](https://arxiv.org/abs/2210.11621) on Pashto–Asturian, with st_coef=0.5, student_min_prob=0, and student_temperature=0.5:
-- `python -m scripts.run --model_path small100_tr_st --language_pairs ps-ast --model_contrastive True --st_coef 0.5 --student_min_prob 0 --student_temperature 0.5`
+Teacher-student model-contrastive with [SMaLL-100](https://arxiv.org/abs/2210.11621) on Pashto–Asturian, with student_coef=0.5, student_min_prob=0, and student_temperature=0.5:
+- `python -m scripts.run --model_path small100_tr_st --language_pairs ps-ast --model_contrastive True --student_coef 0.5 --student_min_prob 0 --student_temperature 0.5`
 
-Hybrid model-contrastive with [SMaLL-100](https://arxiv.org/abs/2210.11621) on Pashto–Asturian, with 2 random source segments, λ_src=0.7, λ_lang=0.1, and English and Pashto as contrastive target languages, st_coef=0.5, student_min_prob=0, and student_temperature=0.5:
-- `python -m scripts.run --model_path small100_hybrid --language_pairs ps-ast  --source_contrastive 2 --source_weight -0.7 --language_contrastive en ps  --language_weight -0.1 --model_contrastive True --st_coef 0.5 --student_min_prob 0 --student_temperature 0.5`
+Hybrid model-contrastive with [SMaLL-100](https://arxiv.org/abs/2210.11621) on Pashto–Asturian, with 2 random source segments, λ_src=0.7, λ_lang=0.1, and English and Pashto as contrastive target languages, student_coef=0.5, student_min_prob=0, and student_temperature=0.5:
+- `python -m scripts.run --model_path small100_hybrid --language_pairs ps-ast  --source_contrastive 2 --source_weight -0.7 --language_contrastive en ps  --language_weight -0.1 --model_contrastive True --student_coef 0.5 --student_min_prob 0 --student_temperature 0.5`
 
 Language-contrastive decoding with [Llama 2 Chat (7B)](https://arxiv.org/abs/2307.09288) on English–German, with λ_lang=0.5 and English as contrastive target language, using prompting with a one-shot example:
 - `python -m scripts.run --model_path llama-2-7b-chat --language_pairs en-de --language_contrastive en  --language_weight -0.5 --oneshot`

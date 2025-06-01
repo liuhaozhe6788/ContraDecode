@@ -33,7 +33,14 @@ def float_range(mini,maxi):
 
 def main(args):
 
-    model = load_translation_model(args.model_path, device=0)
+    if not os.path.exists("out"):
+        os.mkdir("out")
+    if not (args.source_contrastive or args.language_contrastive) and args.model_contrastive:
+        model = load_translation_model(args.model_path, device=0, student_model_type=args.student_model_type, attention_scale=args.attention_scale, early_exit_layer=args.early_exit_layer)
+    elif (args.source_contrastive or args.language_contrastive) and args.model_contrastive:
+        model = load_translation_model(args.model_path, device=0, student_model_type=args.student_model_type, attention_scale=args.attention_scale, early_exit_layer=args.early_exit_layer)   
+    else: 
+        model = load_translation_model(args.model_path, device=0)            
     language_pairs = args.language_pairs.split(',')
     use_customized = args.use_customized
     custom_dataset_name = args.customized_dataset_name
@@ -46,7 +53,7 @@ def main(args):
     tasks = []
     
     for lang_pair in language_pairs:
-        tasks.append(MTTask(lang_pair[0],lang_pair[1],'flores',use_customized,custom_dataset_name))
+        tasks.append(MTTask(lang_pair[0],lang_pair[1],'flores',use_customized,custom_dataset_name,model_path=args.model_path))
         print(f"Task added {lang_pair[0]} - {lang_pair[1]}")
 
     for task in tasks:
@@ -56,11 +63,11 @@ def main(args):
             print(f"Translations saved in {out_path}")
         elif not (args.source_contrastive or args.language_contrastive) and args.model_contrastive:  
             print(f"Evaluating {task} teacher-student") 
-            out_path = task.evaluate(model.translate_teacher_student, 'model_contrastive', st_coef=args.st_coef, student_min_prob=args.student_min_prob, student_temperature=args.student_temperature)
+            out_path = task.evaluate(model.translate_teacher_student, f'model_contrastive_{args.student_model_type}', student_coef=args.student_coef, student_min_prob=args.student_min_prob, student_temperature=args.student_temperature, student_alpha=args.student_alpha, use_dynamic_coef=args.use_dynamic_coef)
             print(f"Translations saved in {out_path}")     
         elif (args.source_contrastive or args.language_contrastive) and args.model_contrastive:  
             print(f"Evaluating {task} hybrid") 
-            out_path = task.evaluate(model.translate_hybrid, 'hybrid_contrastive', args.source_contrastive, args.source_weight, args.language_contrastive, args.language_weight, args.st_coef, args.student_min_prob, args.student_temperature)
+            out_path = task.evaluate(model.translate_hybrid, f'hybrid_contrastive_{args.student_model_type}', args.source_contrastive, args.source_weight, args.language_contrastive, args.language_weight, args.student_coef, args.student_min_prob, args.student_temperature, args.student_alpha, args.use_dynamic_coef)
             print(f"Translations saved in {out_path}")                
         else:
             print(f"Evaluating {task} direct")
@@ -85,9 +92,19 @@ if __name__ == "__main__":
                         help="language codes of languages for which to construct contrastive variants. Can be multiple (space-separated); 'src' will be mapped to language code of source language. Example: '--language_contrastive en src' will create two contrastive inputs, one with English, one with the source language as desired output language.")
     parser.add_argument("--language_weight", type=float_range(-1, 0), default=-0.1,
                         help="weight of contrastive variants with wrong language indicator. Default -0.1. If multiple contrastive inputs are used, this specifies weight assigned to each of them individually.")
-    parser.add_argument("--model_contrastive", type=bool, default=False,
+    parser.add_argument("--model_contrastive", action='store_true', default=False,
                         help="enable teacher-student contrastive decoding.")
-    parser.add_argument("--st_coef", type=float_range(0, 1), default=0.5,
+    parser.add_argument("--student_model_type", type=str, default="decoder_only", choices=["attention_scaling", "decoder_only", "early_exit"],
+                        help="student model type")
+    parser.add_argument("--attention_scale", type=float_range(0, 1), default=0.01,
+                        help="attention scale for student model.") 
+    parser.add_argument("--early_exit_layer", type=int, default=2,
+                        help="the index of decoder layer to exit") 
+    parser.add_argument("--student_alpha", type=float_range(0, 1), default=0,
+                        help="alpha for student model.")
+    parser.add_argument("--use_dynamic_coef", action='store_true', default=False,
+                        help="dynamic student coefficient for student model.")
+    parser.add_argument("--student_coef", type=float_range(0, 1), default=0.5,
                         help="weight of contrastive variants for student model.")  
     parser.add_argument("--student_min_prob", type=float_range(0, 1), default=0,
                         help="minimum probability for student model.")    

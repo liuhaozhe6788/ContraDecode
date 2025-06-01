@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import os
 from io import BytesIO
 import argparse
 
@@ -10,6 +11,9 @@ def main():
     parser.add_argument("--language_pair", type=str, required=True, help="Specify the sheet from the link to download")
     parser.add_argument("--output", type=str, default="customized_dataset.csv", help="Output CSV file name")
     args = parser.parse_args()
+
+    if not os.path.exists("customized_datasets"):
+        os.mkdir("customized_datasets")
 
     # Fetch the Excel file
     response = requests.get(args.url)

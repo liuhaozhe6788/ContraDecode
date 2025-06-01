@@ -90,9 +90,11 @@ class TranslationModel:
                   return_score: bool = False,
                   batch_size: int = 8,
                   num_beams: int = 5,
-                  st_coef: float = 0.5,
+                  student_coef: float = 0.5,
                   student_min_prob: float = 0,
                   student_temperature: float = 0.5,
+                  student_alpha=0.01,
+                  use_dynamic_coef=True,
                   **kwargs,
                   ) -> Union[str, List[str], Tuple[str, float], List[Tuple[str, float]]]:
         if isinstance(source_sentences, str):
@@ -108,7 +110,8 @@ class TranslationModel:
                 warnings.warn(f"NMT model {self} requires the src language. Assuming 'en'; override with `src_lang`")
                 src_lang = "en"
             self._set_src_lang(src_lang)
-        translations_list = self._translate_teacher_student(source_sentences_list, return_score, batch_size, num_beams=num_beams, st_coef=st_coef, student_min_prob=student_min_prob, student_temperature=student_temperature, **kwargs)
+        translations_list = self._translate_teacher_student(source_sentences_list, return_score, batch_size, num_beams=num_beams, student_coef=student_coef, student_min_prob=student_min_prob, student_temperature=student_temperature, student_alpha=student_alpha,
+                                                            use_dynamic_coef=use_dynamic_coef, **kwargs)
         assert len(translations_list) == len(source_sentences_list)
 
         if isinstance(source_sentences, str):
@@ -124,9 +127,11 @@ class TranslationModel:
                   src_langs: Optional[List[str]] = None,
                   src_weights: Optional[List[float]] = None,
                   num_beams: int = 5,
-                  st_coef: float = 0.5,
+                  student_coef: float = 0.5,
                   student_min_prob: float = 0,
                   student_temperature: float = 0.5,
+                  student_alpha=0.01,
+                  use_dynamic_coef=True,
                   **kwargs,
                   ) -> Union[str, List[str], Tuple[str, float], List[Tuple[str, float]]]:
         translation = None
@@ -135,7 +140,8 @@ class TranslationModel:
             self._set_tgt_lang(tgt_langs[0])
             if self.requires_src_lang:
                 assert src_langs is not None
-            translation = self._translate_hybrid(multi_source_sentences, src_langs, tgt_langs, src_weights=src_weights, st_coef=st_coef,  student_min_prob=student_min_prob, student_temperature=student_temperature, num_beams=num_beams, **kwargs)
+            translation = self._translate_hybrid(multi_source_sentences, src_langs, tgt_langs, src_weights=src_weights, student_coef=student_coef,  student_min_prob=student_min_prob, student_temperature=student_temperature, num_beams=num_beams, student_alpha=student_alpha,
+                                                 use_dynamic_coef=use_dynamic_coef, **kwargs)
 
         return translation
 

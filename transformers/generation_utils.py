@@ -537,7 +537,7 @@ class GenerationMixin:
         encoder = self.get_encoder()
 
         # 2. prepare encoder args and encoder kwargs from model kwargs
-        irrelevant_prefix = ["decoder_", "cross_attn", "use_cache", 'teacher', 'student', 'st_', 'model_kwargs_student', 'tokenizer', 'use_cap_student', 'use_switch']
+        irrelevant_prefix = ["decoder_", "cross_attn", "use_cache", 'teacher', 'student', 'st_', 'model_kwargs_student', 'tokenizer', 'use_cap_student', 'use_switch', 'use_dynamic_coef']
         encoder_kwargs = {
             argument: value
             for argument, value in model_kwargs.items()

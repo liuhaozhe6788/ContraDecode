@@ -14,12 +14,12 @@ def mi(logits_teacher, logits_student, **kwargs):
     return result
 
 def post_process_easy(teacher_distribution, student_distribution, model_kwargs):
-    next_token_scores = teacher_distribution - model_kwargs['st_coef'] * student_distribution
+    next_token_scores = teacher_distribution - model_kwargs['student_coef'] * student_distribution
     return next_token_scores 
 
 
 def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_scores, student_scores, 
-                            model_kwargs, main_model, use_dynamic_coef=True):
+                            model_kwargs, main_model):
     # new_input_ids = input_ids[next_indices.squeeze(0)]
     # temp_rollout = torch.cat([new_input_ids, next_tokens.view(new_input_ids.size(0), -1)], dim=-1)
     # preseqlen = temp_rollout.size(1)
@@ -39,19 +39,19 @@ def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_sco
     # print(next_token_scores.shape, student_scores.shape, )
     teacher_token_scores_exp = next_token_scores.exp()
     max_prob = torch.max(teacher_token_scores_exp, dim=next_token_scores.dim()-1).values.reshape(-1,1)
-    thres = torch.mul(0.1, max_prob)
+    thres = torch.mul(model_kwargs['student_alpha'], max_prob)
 
     # calculating dynamic weight
-    if use_dynamic_coef:
-        st_coef = 1- torch.pow(max_prob, model_kwargs['st_coef'])
+    if model_kwargs['use_dynamic_coef']:
+        student_coef = 1- torch.pow(max_prob, model_kwargs['student_coef'])
     else:
-        st_coef = model_kwargs['st_coef']
+        student_coef = model_kwargs['student_coef']
 
     # thresholding
     prob_cond = teacher_token_scores_exp > thres
     next_token_scores = torch.where(prob_cond, next_token_scores, next_token_scores - 20)
     trunc_cond = teacher_token_scores_exp < thres
-    next_token_scores = torch.where(trunc_cond, next_token_scores, next_token_scores - st_coef * student_scores)
+    next_token_scores = torch.where(trunc_cond, next_token_scores, next_token_scores - student_coef * student_scores)
 
     # print(next_token_scores) # analysis 
 
