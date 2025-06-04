@@ -1,5 +1,7 @@
 from datasets import load_dataset
 import pandas as pd
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from transformers.models.m2m_100 import M2M100ForConditionalGeneration, M2M100Tokenizer
 from tqdm.notebook import tqdm
 from mt_task import MTTask
@@ -105,7 +107,7 @@ def process_lang_pair(src, tgt, batch_size):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_path", type=str, default="",
+    parser.add_argument("--model_path", type=str, required=True, choices=["small100", "m2m100_418M"],
                         help="The HF model path")
     parser.add_argument("--batch_size", type=int, default=16,
                         help="The batch size")

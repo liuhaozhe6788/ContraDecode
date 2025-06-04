@@ -1,4 +1,5 @@
 import torch 
+import numpy as np
 
 def mi(logits_teacher, logits_student, **kwargs):
     '''
@@ -37,9 +38,14 @@ def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_sco
     # print(diff) 
 
     # print(next_token_scores.shape, student_scores.shape, )
-    teacher_token_scores_exp = next_token_scores.exp()
-    max_prob = torch.max(teacher_token_scores_exp, dim=next_token_scores.dim()-1).values.reshape(-1,1)
-    thres = torch.mul(model_kwargs['student_alpha'], max_prob)
+    teacher_scores = next_token_scores
+    max_log_prob = torch.max(teacher_scores, dim=-1).values.reshape(-1,1)
+    max_prob = max_log_prob.exp()
+
+    if model_kwargs['student_alpha'] == 0:
+        thres = -np.inf + max_log_prob
+    else:
+        thres = np.log(model_kwargs['student_alpha']) + max_log_prob
 
     # calculating dynamic weight
     if model_kwargs['use_dynamic_coef']:
@@ -48,9 +54,9 @@ def post_process_reweight(  input_ids, next_indices, next_tokens, next_token_sco
         student_coef = model_kwargs['student_coef']
 
     # thresholding
-    prob_cond = teacher_token_scores_exp > thres
+    prob_cond = teacher_scores >= thres
     next_token_scores = torch.where(prob_cond, next_token_scores, next_token_scores - 20)
-    trunc_cond = teacher_token_scores_exp < thres
+    trunc_cond = teacher_scores < thres
     next_token_scores = torch.where(trunc_cond, next_token_scores, next_token_scores - student_coef * student_scores)
 
     # print(next_token_scores) # analysis 

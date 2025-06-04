@@ -1,8 +1,9 @@
 import pandas as pd
 import requests
-import os
 from io import BytesIO
 import argparse
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 URL = "https://docs.google.com/spreadsheets/d/16Ot7HFcgNNTJPT2pyH2B_fEyfSxJABeV/export?format=xlsx"
 def main():

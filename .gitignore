@@ -5,4 +5,5 @@ log_test/
 outputs/
 .DS_Store
 *.xlsx
+*.csv
 customized_datasets/

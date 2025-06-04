@@ -168,10 +168,10 @@ def load_translation_model(name: str, **kwargs) -> TranslationModel:
     # elif name == "m2m100_418M":
     #     from translation_models.m2m100 import M2M100Model
     #     translation_model = M2M100Model(model_name_or_path="facebook/m2m100_418M", **kwargs)  
-    elif name == "m2m100_tr_st":
+    elif name == "m2m100_418M_tr_st":
         from translation_models.m2m100 import M2M100ModelTeacherStudent
         translation_model = M2M100ModelTeacherStudent(model_name_or_path="facebook/m2m100_418M", **kwargs)   
-    elif name == "m2m100_hybrid":
+    elif name == "m2m100_418M_hybrid":
         from translation_models.m2m100 import M2M100ModelHybrid
         translation_model = M2M100ModelHybrid(model_name_or_path="facebook/m2m100_418M", **kwargs)
     elif name == "llama-2-7b-chat":
