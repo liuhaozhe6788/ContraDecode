@@ -27,9 +27,14 @@ class MTTask:
         self.testset = testset
         self.use_customize = use_customize
         self.custom_dataset_name = custom_dataset_name
-        base_out_dir = Path(__file__).parent / "out"
+        if True:
+            base_out_dir = Path("/content/drive/MyDrive/csnlp/out")
+        else:
+            base_out_dir = Path(__file__).parent / "out"
+
         print(base_out_dir)
-        assert base_out_dir.exists()
+        if not base_out_dir.exists():
+            base_out_dir.mkdir(exist_ok=True)
         self.out_dir = base_out_dir / self.testset
         self.out_dir.mkdir(exist_ok=True)
         if model_path.startswith("small100"):

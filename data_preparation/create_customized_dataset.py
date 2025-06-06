@@ -16,13 +16,18 @@ def main():
     if not os.path.exists("customized_datasets"):
         os.mkdir("customized_datasets")
 
-    # Fetch the Excel file
-    response = requests.get(args.url)
-    response.raise_for_status()  # raises error if request failed
-    xls_data = BytesIO(response.content)
+    output = args.output
+    file_path = f"customized_datasets/dataset-small100.xlsx"
+    if not os.path.isfile(file_path):
+        # Fetch the Excel file
+        response = requests.get(args.url)
+        response.raise_for_status()  # raises error if request failed
+        xls_data = BytesIO(response.content)
+        with open(file_path, 'wb') as f:
+            f.write(xls_data.getbuffer())
 
-    # Load and convert to CSV
-    df = pd.read_excel(xls_data, sheet_name = args.language_pair)
+
+    df = pd.read_excel(file_path, sheet_name = args.language_pair)
     print(df.head(5))
     df.to_csv(f'customized_datasets/{args.output}', index=False)
 

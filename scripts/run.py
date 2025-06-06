@@ -33,8 +33,6 @@ def float_range(mini,maxi):
 
 def main(args):
 
-    if not os.path.exists("out"):
-        os.mkdir("out")
     if not (args.source_contrastive or args.language_contrastive) and args.model_contrastive:
         model = load_translation_model(args.model_path, device=0, student_model_type=args.student_model_type, attention_scale=args.attention_scale, early_exit_layer=args.early_exit_layer)
     elif (args.source_contrastive or args.language_contrastive) and args.model_contrastive:

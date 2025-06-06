@@ -12,7 +12,7 @@ from data_preparation.preprocessing import lang_pairs
 def main(args):
     # Output directory
     model_name = args.model_name
-    for lang_pair in tqdm(lang_pairs[:10]):
+    for lang_pair in tqdm(lang_pairs):
         src_lang, tgt_lang = lang_pair
         lang_pair = src_lang + "-" + tgt_lang
         # create dataset
