@@ -2,21 +2,30 @@ import pandas as pd
 import sys, os
 import argparse
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from data_preparation.preprocessing import get_lang_ident, top_count_4grams_nltk
+from data_preparation.preprocessing import top_count_4grams_nltk
 from sacrebleu.metrics import CHRF
-from scripts.run_results import lang_pairs, model_types
+from scripts.run_autoeval import lang_pairs, model_types
 from tqdm import tqdm
+import fasttext
+from huggingface_hub import hf_hub_download
 
-
-# tqdm.pandas()
 chrf = CHRF()
+
+lang_ident_model_path = hf_hub_download(repo_id="laurievb/OpenLID-v2", filename="model.bin")
+lang_ident_model = fasttext.load_model(lang_ident_model_path)
+
+# get language identification of the sentence
+def get_lang_ident(sentence):
+    sentence = str(sentence)
+    lang_ident = lang_ident_model.predict(sentence)[0][0].split("__")[2].split("_")[0][:2]
+    return lang_ident
 
 # --- Core Logic ---
 def process_all(root_dir):
-    off_target = {m: {"EN": 0, "src": 0} for m in model_types}
-    chrf10 = {m: {"HLMT": [], "X-branch": [], "Zulu-related": [], "high-res": [], "all": []} for m in model_types}
-    osc = {m: {"HLMT": [], "X-branch": [], "Zulu-related": [], "high-res": [], "all": []} for m in model_types}
-    data_size = {"HLMT": 0, "X-branch": 0, "Zulu-related": 0, "high-res": 0, "all": 0}
+    off_target = {m: {"EN": 0, "other-src": 0, "low-src": 0} for m in model_types}
+    chrf_low = {m: {"HLMT": [], "X-branch": [], "high-res": [], "all": []} for m in model_types}
+    osc = {m: {"HLMT": [], "X-branch": [], "high-res": [], "all": []} for m in model_types}
+    data_size = {"HLMT": 0, "X-branch": 0, "high-res": 0, "all": 0}
 
     # map lang-pair to group name
     group_map = {}
@@ -47,60 +56,57 @@ def process_all(root_dir):
             assert len(translations) == len(references)
             for h, r in zip(translations, references):
                 chrf_val = chrf.sentence_score(h, [r]).score
-                chrf_vals.append(chrf_val < 10)
+                chrf_vals.append(chrf_val < 45.6)
 
                 osc_vals.append(top_count_4grams_nltk(h) > top_count_4grams_nltk(r) + 2)
 
                 # Off-target classification
                 lang = get_lang_ident(h)
                 if lang == "en" and tgt != "en":
-                    off_target[model]["EN"] += 1
+                    off_target[model]["EN"] += 1                   
                 elif not ((lang== "fr" and tgt == "ca") or (lang== "ca" and tgt == "fr")) and (lang == src and tgt != src):
-                    off_target[model]["src"] += 1
+                    if src in ["af", "ast", "hr", "ps", "ur", "zu"]:
+                        off_target[model]["low-src"] += 1 
+                    else:
+                        off_target[model]["other-src"] += 1
 
             chrf_freq = sum(chrf_vals)
             osc_freq = sum(osc_vals)
 
             if group:
-                chrf10[model][group].append(chrf_freq)
+                chrf_low[model][group].append(chrf_freq)
                 osc[model][group].append(osc_freq)
                 data_size[group]+=len(chrf_vals)
 
-            if src == "zu" or tgt == "zu":
-                chrf10[model]["Zulu-related"].append(chrf_freq)
-                osc[model]["Zulu-related"].append(osc_freq)
-                data_size["Zulu-related"]+=len(chrf_vals)
-
-            chrf10[model]["all"].append(chrf_freq)
+            chrf_low[model]["all"].append(chrf_freq)
             osc[model]["all"].append(osc_freq)
             data_size["all"]+=len(chrf_vals)
 
-    return off_target, chrf10, osc, data_size
+    return off_target, chrf_low, osc, data_size
 
 # --- Output generation ---
-def export_tables(off_target, chrf10, osc, data_size):
+def export_tables(off_target, chrf_low, osc, data_size):
     df_off_target = pd.DataFrame.from_dict(off_target, orient='index').reset_index().rename(columns={"index": "model"})
     
     def agg_group_metric(metric_dict, data_size):
         return pd.DataFrame([
             {
                 "model": m,
-                "HLMT": sum(v["HLMT"]) / data_size["HLMT"] if v["HLMT"] else 0,
-                "X-branch": sum(v["X-branch"]) / data_size["X-branch"] if v["X-branch"] else 0,
-                "high-res": sum(v["high-res"]) / data_size["high-res"] if v["high-res"] else 0,
-                "Zulu-related": sum(v["Zulu-related"]) / data_size["Zulu-related"] if v["Zulu-related"] else 0,
-                "all": sum(v["all"]) / data_size["all"] if v["all"] else 0,
+                "HLMT": sum(v["HLMT"]) / data_size["HLMT"] * 100 if data_size["HLMT"] else 0,
+                "X-branch": sum(v["X-branch"]) / data_size["X-branch"] * 100 if data_size["X-branch"] else 0,
+                "high-res": sum(v["high-res"]) / data_size["high-res"] * 100 if data_size["high-res"] else 0,
+                "all": sum(v["all"]) / data_size["all"] * 100 if data_size["all"] else 0,
             } for m, v in metric_dict.items()
         ])
 
-    df_chrf10 = agg_group_metric(chrf10, data_size)
-    df_osc = agg_group_metric(osc, data_size)
+    df_chrf_low = agg_group_metric(chrf_low, data_size).round(3)
+    df_osc = agg_group_metric(osc, data_size).round(3)
 
     df_off_target.to_csv("table_off_target.csv", index=False)
-    df_chrf10.to_csv("table_chrf_less_10.csv", index=False)
+    df_chrf_low.to_csv("table_chrf_low.csv", index=False)
     df_osc.to_csv("table_oscillation.csv", index=False)
 
-    return df_off_target, df_chrf10, df_osc
+    return df_off_target, df_chrf_low, df_osc
 
 # --- Entrypoint ---
 if __name__ == "__main__":
@@ -108,8 +114,8 @@ if __name__ == "__main__":
     parser.add_argument("--root_dir", type=str, default="out/flores/small100")
     args = parser.parse_args()
 
-    off_target, chrf10, osc, data_size = process_all(args.root_dir)
-    df_off, df_chrf, df_osc = export_tables(off_target, chrf10, osc, data_size)
+    off_target, chrf_low, osc, data_size = process_all(args.root_dir)
+    df_off, df_chrf, df_osc = export_tables(off_target, chrf_low, osc, data_size)
     print(df_off)
     print(df_chrf)
     print(df_osc)

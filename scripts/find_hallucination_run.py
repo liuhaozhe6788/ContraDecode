@@ -46,16 +46,16 @@ def main(args):
     f.close()
 
     for i in range(len(references)):
-        r, t_direct = references[i], translations_direct[i]
-        if top_count_4grams_nltk(t_direct) > top_count_4grams_nltk(r) + 2:
+        r, t_direct, t_CD = references[i], translations_direct[i], translations_model_contrastive_decoder_only[i]
+        if top_count_4grams_nltk(t_CD) > top_count_4grams_nltk(r) + 2:
             print(i+1)
-            print(references[i])
-            print(translations_direct[i])
-            print(translations_input_contra[i])
-            print(translations_model_contrastive_attention_scaling[i])
-            print(translations_model_contrastive_decoder_only[i])
-            print(translations_hybrid_contrastive_attention_scaling[i])
-            print(translations_hybrid_contrastive_decoder_only[i])
+            print("ref:"+ references[i])
+            print("direct:"+ translations_direct[i])
+            print("input-CD:"+ translations_input_contra[i])
+            print("attn-scale CD:"+ translations_model_contrastive_attention_scaling[i])
+            print("decoder-only CD:"+ translations_model_contrastive_decoder_only[i])
+            print("joint attn-scale:"+ translations_hybrid_contrastive_attention_scaling[i])
+            print("joint decoder-only:"+ translations_hybrid_contrastive_decoder_only[i])
 
 
 if __name__ == "__main__":
