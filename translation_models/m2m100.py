@@ -141,6 +141,7 @@ class M2M100Model(TranslationModel):
                 **inputs,
                 forced_bos_token_id=self.tokenizer.get_lang_id(self.tgt_lang),
                 num_beams=num_beams,
+                teacher_student=False,
                 return_dict_in_generate=True,
                 output_scores=return_score,
                 **kwargs,
@@ -182,7 +183,126 @@ class M2M100Model(TranslationModel):
             **inputs,
             num_beams=num_beams,
             return_dict_in_generate=True,
+            teacher_student=False,
             logits_processor=logits_processor,
+            **kwargs,
+        )
+        translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
+        return translations[0]
+
+
+class M2M100ModelTeacherStudent(M2M100Model):
+    """
+    M2M100 model with teacher-student contrastive decoding generation
+    """
+    def __init__(self, model_name_or_path: str = "facebook/m2m100_418M", device=None, student_model_type=None, attention_scale=0.01, early_exit_layer=2):
+        super().__init__(model_name_or_path=model_name_or_path, device=device)
+
+        # attention scaling
+        if student_model_type == "attention_scaling":
+            self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=attention_scale)
+
+        # decoder only
+        elif student_model_type == "decoder_only":
+            self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, decoder_only=True)
+
+        # early exit
+        elif student_model_type == "early_exit":
+            self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, early_exit=True, early_exit_layer=early_exit_layer)
+
+        if device is not None:
+            self.student_model = self.student_model.to(device)
+
+    @torch.no_grad()
+    def _translate_teacher_student(self,
+                   source_sentences: List[str],
+                   return_score: bool = False,
+                   batch_size: int = 8,
+                   num_beams: int = 5,
+                   student_coef: float = 0.5,
+                   student_min_prob: float = 0,
+                   student_temperature: float = 0.5,
+                   student_alpha=0.01,
+                   use_dynamic_coef=True,
+                   **kwargs,
+                   ) -> Union[List[str], List[Tuple[str, float]]]:
+        padding_strategy = PaddingStrategy.LONGEST if batch_size > 1 else PaddingStrategy.DO_NOT_PAD
+        translations = []
+        for src_sentences in tqdm(list(batch(source_sentences, batch_size)), disable=len(source_sentences) / batch_size < 10):
+            inputs = self.tokenizer._batch_encode_plus(src_sentences, return_tensors="pt",
+                                                       padding_strategy=padding_strategy)
+            inputs = inputs.to(self.model.device)
+            model_output = self.model.generate(
+                **inputs,
+                num_beams=num_beams,
+                return_dict_in_generate=True,
+                student_lm=self.student_model,
+                teacher_student=True,
+                model_kwargs_student={}, 
+                student_coef=student_coef,
+                tokenizer=self.tokenizer, # analysis
+                student_min_prob=student_min_prob,
+                student_temperature=student_temperature,
+                student_alpha=student_alpha,
+                use_dynamic_coef=use_dynamic_coef,
+                **kwargs
+            )
+            batch_translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
+            if return_score:
+                # Does not match our score method output for some reason; need to investigate further
+                # scores = (2 ** model_output.sequences_scores).tolist()
+                scores = [None for _ in batch_translations]
+                assert len(batch_translations) == len(scores)
+                batch_translations = list(zip(batch_translations, scores))
+            translations += batch_translations
+        return translations    
+
+
+class M2M100ModelHybrid(M2M100ModelTeacherStudent):
+    """
+    M2M100 model with hybrid contrastive decoding generation
+    """
+    def __init__(self, model_name_or_path: str = "facebook/m2m100_418M", device=None, student_model_type=None, attention_scale=0.01, early_exit_layer=2):
+        super().__init__(model_name_or_path=model_name_or_path, device=device, student_model_type=student_model_type, attention_scale=attention_scale, early_exit_layer=early_exit_layer)
+
+    @torch.no_grad()
+    def _translate_hybrid(self,
+                        multi_source_sentences: List[str],
+                        src_langs: List[str],
+                        tgt_langs: List[str],
+                        src_weights: Optional[List[float]] = None,
+                        num_beams: int = 1,
+                        student_coef: float = 0.5,
+                        student_min_prob: float = 0,
+                        student_temperature: float = 0.5,
+                        student_alpha=0.01,
+                        use_dynamic_coef=True,
+                        **kwargs,
+                        ) -> str:
+        assert len(multi_source_sentences) == len(src_langs)
+        #src_weights = [0.5,0.25,0.25]
+
+        inputs = self.tokenizer._batch_encode_plus(multi_source_sentences, return_tensors="pt",
+                                                   padding_strategy=PaddingStrategy.LONGEST)
+        # Set individual src language token per row
+        for i, src_lang in enumerate(src_langs):
+            inputs["input_ids"][i][0] = self.tokenizer.get_lang_id(tgt_langs[i])
+        inputs = inputs.to(self.model.device)
+        logits_processor = LogitsProcessorList([EnsembleLogitsProcessor(num_beams=num_beams, source_weights=src_weights)])
+        model_output = self.model.generate(
+            **inputs, 
+            num_beams=num_beams,
+            return_dict_in_generate=True,
+            logits_processor=logits_processor,
+            student_lm=self.student_model,
+            teacher_student=True,
+            model_kwargs_student={}, 
+            student_coef=student_coef,
+            tokenizer=self.tokenizer, # analysis
+            student_min_prob=student_min_prob,
+            student_temperature=student_temperature,
+            student_alpha=student_alpha,
+            use_dynamic_coef=use_dynamic_coef,
             **kwargs,
         )
         translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)

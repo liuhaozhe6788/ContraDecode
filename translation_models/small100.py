@@ -122,14 +122,20 @@ class SMALL100ModelTeacherStudent(SMaLL100Model):
     SMALL100 model with teacher-student contrastive decoding generation
 
     """
-    def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None):
+    def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None, student_model_type=None, attention_scale=0.01, early_exit_layer=2):
         super().__init__(model_name_or_path=model_name_or_path, device=device)
 
         # attention scaling
-        # self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=0.01)
+        if student_model_type == "attention_scaling":
+            self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, attention_scaling=attention_scale)
 
         # decoder only
-        self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, decoder_only=True)
+        elif student_model_type == "decoder_only":
+            self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, decoder_only=True)
+
+        # early exit
+        elif student_model_type == "early_exit":
+            self.student_model = M2M100ForConditionalGeneration.from_pretrained(model_name_or_path, early_exit=True, early_exit_layer=early_exit_layer)
 
         if device is not None:
             self.student_model = self.student_model.to(device)
@@ -140,9 +146,11 @@ class SMALL100ModelTeacherStudent(SMaLL100Model):
                    return_score: bool = False,
                    batch_size: int = 8,
                    num_beams: int = 5,
-                   st_coef: float = 0.5,
+                   student_coef: float = 0.5,
                    student_min_prob: float = 0,
                    student_temperature: float = 0.5,
+                   student_alpha=0.01,
+                   use_dynamic_coef=True,
                    **kwargs,
                    ) -> Union[List[str], List[Tuple[str, float]]]:
         padding_strategy = PaddingStrategy.LONGEST if batch_size > 1 else PaddingStrategy.DO_NOT_PAD
@@ -158,10 +166,12 @@ class SMALL100ModelTeacherStudent(SMaLL100Model):
                 student_lm=self.student_model,
                 teacher_student=True,
                 model_kwargs_student={}, 
-                st_coef=st_coef,
+                student_coef=student_coef,
                 tokenizer=self.tokenizer, # analysis
                 student_min_prob=student_min_prob,
                 student_temperature=student_temperature,
+                student_alpha=student_alpha,
+                use_dynamic_coef=use_dynamic_coef,
                 **kwargs
             )
             batch_translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
@@ -180,8 +190,8 @@ class SMALL100ModelHybrid(SMALL100ModelTeacherStudent):
     SMALL100 model with hybrid contrastive decoding generation
 
     """
-    def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None):
-        super().__init__(model_name_or_path=model_name_or_path, device=device)
+    def __init__(self, model_name_or_path: str = "alirezamsh/small100", device=None, student_model_type=None, attention_scale=0.01, early_exit_layer=2):
+        super().__init__(model_name_or_path=model_name_or_path, device=device, student_model_type=student_model_type, attention_scale=attention_scale, early_exit_layer=early_exit_layer)
 
     @torch.no_grad()
     def _translate_hybrid(self,
@@ -190,9 +200,11 @@ class SMALL100ModelHybrid(SMALL100ModelTeacherStudent):
                         tgt_langs: List[str],
                         src_weights: Optional[List[float]] = None,
                         num_beams: int = 1,
-                        st_coef: float = 0.5,
+                        student_coef: float = 0.5,
                         student_min_prob: float = 0,
                         student_temperature: float = 0.5,
+                        student_alpha=0.01,
+                        use_dynamic_coef=True,
                         **kwargs,
                         ) -> str:
         assert len(multi_source_sentences) == len(src_langs)
@@ -213,10 +225,12 @@ class SMALL100ModelHybrid(SMALL100ModelTeacherStudent):
             student_lm=self.student_model,
             teacher_student=True,
             model_kwargs_student={}, 
-            st_coef=st_coef,
+            student_coef=student_coef,
             tokenizer=self.tokenizer, # analysis
             student_min_prob=student_min_prob,
             student_temperature=student_temperature,
+            student_alpha=student_alpha,
+            use_dynamic_coef=use_dynamic_coef,
             **kwargs,
         )
         translations = self.tokenizer.batch_decode(model_output.sequences, skip_special_tokens=True)
