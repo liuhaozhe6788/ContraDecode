@@ -1,7 +1,7 @@
 # Joint Contrastive Decoding Framework for Multilingual Machine Translation
 
 
-This repository implements a joint contrastive decoding framework that combines source-contrastive and language-contrastive decoding [Sennrich et al. (EACL 2024)](https://arxiv.org/abs/2309.07098) with teacher-student model constrastive decoding [Waldendorf et al., EACL 2024)](https://aclanthology.org/2024.eacl-long.155/). Final report: [pdf](final_report.pdf).
+This repository is a course project from Computational Semantics for Natural Language Processing FS25, which implements a joint contrastive decoding framework that combines source-contrastive and language-contrastive decoding [Sennrich et al. (EACL 2024)](https://arxiv.org/abs/2309.07098) with teacher-student model constrastive decoding [Waldendorf et al., EACL 2024)](https://aclanthology.org/2024.eacl-long.155/). Final report: [pdf](final_report.pdf).
 
 - In **source-contrastive decoding**, we search for a translation that maximizes P(_Y_|_X_) - λ·P(_Y_|_X'_), where _X'_ is a random source segment. This penalizes hallucinations.
 
