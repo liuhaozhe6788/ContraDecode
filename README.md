@@ -1,7 +1,7 @@
-# Joint Contrastive Decoding
+# Joint Contrastive Decoding Framework for Multilingual Machine Translation
 
 
-This repository implements a joint contrastive decoding framework that combines source-contrastive and language-contrastive decoding [Sennrich et al. (EACL 2024)](https://arxiv.org/abs/2309.07098) with teacher-student model constrastive decoding [Waldendorf et al., EACL 2024)](https://aclanthology.org/2024.eacl-long.155/).
+This repository implements a joint contrastive decoding framework that combines source-contrastive and language-contrastive decoding [Sennrich et al. (EACL 2024)](https://arxiv.org/abs/2309.07098) with teacher-student model constrastive decoding [Waldendorf et al., EACL 2024)](https://aclanthology.org/2024.eacl-long.155/). Final report: [pdf](final_report.pdf).
 
 - In **source-contrastive decoding**, we search for a translation that maximizes P(_Y_|_X_) - λ·P(_Y_|_X'_), where _X'_ is a random source segment. This penalizes hallucinations.
 
@@ -10,7 +10,7 @@ This repository implements a joint contrastive decoding framework that combines 
 - In **teacher-student contrastive decoding**, we use a weak student model prone to generate hallucination translations and penalize the generation from the student model. This can also mitigate hallucinations.
 
 <p align="center">
-<img src="imgs/illustration.png" alt="Our decoding objective yields a translation that is probable given the actual input, but improbable given a source-contrastive or language-contrastive input." width="800">
+<img src="imgs/illustr.png" alt="Our decoding objective yields a translation that is probable given the actual input, but improbable given a source-contrastive or language-contrastive input." width="800">
 </p>
 
 ## Installation
